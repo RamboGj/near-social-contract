@@ -1,11 +1,13 @@
+import { AccountId } from "near-sdk-js"
+
 export interface PostProps {
-  timestamp: Date
-  author: string
+  timestamp: bigint
+  author: AccountId
   content: string
 }
 
 export interface UserProps {
-  username: string
+  username: AccountId
   friends: UserProps[]
   posts: PostProps[]
 }

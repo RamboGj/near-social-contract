@@ -1,8 +1,9 @@
+import { AccountId } from "near-sdk-js";
 import { PostProps, UserProps } from "./types";
 
 export class Post {
-  timestamp: Date
-  author: string
+  author: AccountId
+  timestamp: bigint
   content: string
 
   constructor({ author, content, timestamp }: Post) {
@@ -13,7 +14,7 @@ export class Post {
 }
 
 export class User {
-  username: string
+  username: AccountId
   friends: UserProps[]
   posts: PostProps[]
 
