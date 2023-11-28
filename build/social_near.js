@@ -683,6 +683,7 @@ var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _class, _class
  - CALL create user - DONE
 */
 let SocialNear = (_dec = NearBindgen({}), _dec2 = view(), _dec3 = view(), _dec4 = view(), _dec5 = view(), _dec6 = view(), _dec7 = call({}), _dec8 = call({}), _dec9 = call({}), _dec(_class = (_class2 = class SocialNear {
+  // TO-DO verify users, state is not changing
   users = new LookupMap("accountId"); // accountId => User
   friends = new LookupMap("accountId"); // accountId => User[]
   posts = new Vector("v-uid"); // Post[]
@@ -692,39 +693,59 @@ let SocialNear = (_dec = NearBindgen({}), _dec2 = view(), _dec3 = view(), _dec4 
     return this.posts.toArray();
   }
   get_post_by_user(username) {
-    const posts = this.users.get(username).posts;
-    log(`Specific posts from ${username}: ${posts}`);
-    return posts;
+    const userExists = verifyUserExistence(this.users);
+    if (userExists) {
+      log("User exists");
+      const posts = this.users.get(username)?.posts;
+      log(`Specific posts from ${username}: ${posts}`);
+      return posts;
+    } else {
+      return [];
+    }
   }
-  get_posts_from_user_friends() {
+  get_posts_from_user_friends(accountId) {
     const friendsPosts = [];
-    const user = this.users.get(signerAccountId());
+    log("get_posts_from_user_friends accoutnId: ", accountId);
+    const userExists = verifyUserExistence(this.users);
+    assert(userExists, "User is not registered on the platform. Reverting call.");
+    const user = this.users.get(accountId);
     log("User: " + user);
-    const userFriends = this.friends.get(signerAccountId());
+    const userFriends = this.friends.get(accountId);
     log("userFriends", userFriends);
-    userFriends.forEach(({
-      posts
-    }) => {
-      friendsPosts.push(...posts);
-    });
-    log("friendsPosts: " + friendsPosts);
-    return friendsPosts;
+    if (userFriends.length > 0) {
+      userFriends.forEach(({
+        posts
+      }) => {
+        friendsPosts.push(...posts);
+      });
+      log("friendsPosts: " + friendsPosts);
+      return friendsPosts;
+    } else {
+      return [];
+    }
   }
   get_user(accountId) {
-    log(this.users.get(accountId));
-    return this.users.get(signerAccountId());
+    // TO-DO verify why it`s returning null
+    log("accountId =>", accountId);
+    log("get_user accountId:", accountId);
+    log("getter", this.users.get(accountId));
+    return this.users.get(accountId);
   }
-  get_user_friends(username) {
-    const user = this.users.get(signerAccountId());
+  get_user_friends(accountId) {
+    const userExists = verifyUserExistence(this.users);
+    assert(userExists, "User is not registered on the platform. Reverting call.");
+    const user = this.users.get(accountId);
     const friends = user.friends;
-    log(`${username} friends are: ${friends}`);
+    log(`${accountId} friends are: ${friends}`);
     return friends;
   }
   add_post({
     content
   }) {
+    log(`Before verifyUserExistence: ${this.users}`);
     const userExists = verifyUserExistence(this.users);
-    assert(userExists, "User is not registered on the platform.");
+    log(`After verifyUserExistence: ${this.users}`);
+    assert(userExists, "User is not registered on the platform. Reverting call.");
     const newPost = new Post({
       author: signerAccountId(),
       content,
@@ -739,16 +760,25 @@ let SocialNear = (_dec = NearBindgen({}), _dec2 = view(), _dec3 = view(), _dec4 
     this.users.get(signerAccountId()).posts.push(newPost);
   }
   add_new_friend(accountId) {
+    // TO-DO update friends mapping (friends.set)
+    const userExists = verifyUserExistence(this.users);
+    assert(userExists, "User is not registered on the platform. Reverting call.");
     const userToAddFriend = this.users.get(signerAccountId());
     log("userToAddFriend", userToAddFriend);
     const friendAlreadyAdded = userToAddFriend.friends.filter(friend => {
       return friend.username === accountId;
     }).length > 0 ? true : false;
     assert(!friendAlreadyAdded, "Friend already added. Reverting call.");
+    const friendToAddExists = this.friends.containsKey(accountId);
+    assert(friendToAddExists, "User does not exist. Reverting call.");
     const friend = this.users.get(accountId);
-
-    // Add friend to user friends array
+    let userFriends = this.friends.get(signerAccountId());
+    if (userFriends === null) {
+      userFriends = [];
+    }
+    userFriends.push(friend);
     userToAddFriend.friends.push(friend);
+    this.friends.set(accountId, userFriends);
   }
 
   // call this when user connect wallet for the first time
@@ -758,6 +788,9 @@ let SocialNear = (_dec = NearBindgen({}), _dec2 = view(), _dec3 = view(), _dec4 
     const newUser = new User({
       username: signerAccountId()
     });
+    log("create_user near.signerAccountId()", signerAccountId());
+    log("newUser", newUser);
+    log('users', this.users);
     this.users.set(signerAccountId(), newUser);
   }
 }, (_applyDecoratedDescriptor(_class2.prototype, "get_all_posts", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "get_all_posts"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_post_by_user", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "get_post_by_user"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_posts_from_user_friends", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "get_posts_from_user_friends"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_user", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "get_user"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_user_friends", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "get_user_friends"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "add_post", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "add_post"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "add_new_friend", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "add_new_friend"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "create_user", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "create_user"), _class2.prototype)), _class2)) || _class);
@@ -870,8 +903,12 @@ function get_all_posts() {
 }
 function verifyUserExistence(users) {
   const userExists = users.containsKey(signerAccountId());
+  const getUser = users.get(signerAccountId());
+  const getUserWithString = users.get("rambogj.testnet");
   log("user", userExists);
-  log("users.get(near.signerAccountId())", users.get(signerAccountId()));
+  log("getUser", getUser);
+  log("getUserWithString", getUserWithString);
+  log("verifyUserExistence near.signerAccountId()", signerAccountId());
   return userExists;
 }
 
