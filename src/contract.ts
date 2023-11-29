@@ -3,8 +3,6 @@ import { NearBindgen, near, call, view, assert, LookupMap, Vector, AccountId } f
 import { Post, User } from './model';
 import { PostProps, UserProps } from './types';
 
-// Social Midia Smart Contract with Near to connect with RE-NFT test
-
 // REQUIREMENTS:
 /*
  - GET all posts - DONE
@@ -72,11 +70,12 @@ class SocialNear {
 
   @view({})
   get_user(accountId: string): UserProps {
-    // TO-DO verify why it`s returning null
-    near.log("accountId =>", accountId)
+    const userExists2 = verifyUserExistenceV2(this.users, accountId)
 
+    near.log("userExists2", userExists2)
     near.log("get_user accountId:", accountId)
     near.log("getter", this.users.get(accountId))
+
     return this.users.get(accountId)
   } 
 
@@ -166,13 +165,18 @@ class SocialNear {
 
 function verifyUserExistence(users: LookupMap<UserProps>) {
   const userExists = users.containsKey(near.signerAccountId())
-
   const getUser = users.get(near.signerAccountId())
-  const getUserWithString = users.get("rambogj.testnet")
   near.log("user", userExists)
   near.log("getUser", getUser)
-  near.log("getUserWithString", getUserWithString)
-  near.log("verifyUserExistence near.signerAccountId()", near.signerAccountId())
+
+  return userExists
+}
+
+function verifyUserExistenceV2(users: LookupMap<UserProps>, accountId) {
+  const userExists = users.containsKey(accountId)
+  const getUser = users.get(accountId)
+  near.log("verifyUserExistenceV2 user", userExists)
+  near.log("verifyUserExistenceV2 getUser", getUser)
 
   return userExists
 }

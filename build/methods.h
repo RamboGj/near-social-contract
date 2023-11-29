@@ -1,8 +1,0 @@
-DEFINE_NEAR_METHOD(add_new_friend)
-DEFINE_NEAR_METHOD(add_post)
-DEFINE_NEAR_METHOD(create_user)
-DEFINE_NEAR_METHOD(get_all_posts)
-DEFINE_NEAR_METHOD(get_post_by_user)
-DEFINE_NEAR_METHOD(get_posts_from_user_friends)
-DEFINE_NEAR_METHOD(get_user)
-DEFINE_NEAR_METHOD(get_user_friends)
