@@ -1,26 +1,16 @@
 // Find all our documentation at https://docs.near.org
-import { NearBindgen, near, call, view, assert, LookupMap, Vector, AccountId } from 'near-sdk-js';
+import { NearBindgen, near, call, view, assert, LookupMap, Vector } from 'near-sdk-js';
 import { Post, User } from './model';
 import { PostProps, UserProps } from './types';
 
-// REQUIREMENTS:
-/*
- - GET all posts - DONE
- - GET specific user posts - DONE
- - CALL create new post - DONE
+// REVIEW add_post is not updating users[key].posts
+// REVIEW need of having friends LookupMap
 
- - GET friends from user - DONE
- - GET posts from user friends - DONE
- - CALL add friend - DONE
-
- - CALL create user - DONE
-*/
 @NearBindgen({})
 class SocialNear {
-  // TO-DO verify users, state is not changing
-  users: LookupMap<UserProps> = new LookupMap<UserProps>("accountId") // accountId => User
-  friends: LookupMap<UserProps[]> = new LookupMap<UserProps[]>("accountId") // accountId => User[]
-  posts: Vector<PostProps> = new Vector<PostProps>("v-uid"); // Post[]
+  users: LookupMap<UserProps> = new LookupMap<UserProps>("users") // accountId => User
+  friends: LookupMap<UserProps[]> = new LookupMap<UserProps[]>("friends") // accountId => User[]
+  posts: Vector<PostProps> = new Vector<PostProps>("posts"); // Post[]
 
   @view({})
   get_all_posts(): PostProps[] {
@@ -29,13 +19,13 @@ class SocialNear {
   }
 
   @view({})
-  get_post_by_user(username: string): PostProps[] {
-    const userExists = verifyUserExistence(this.users)
+  get_post_by_account_id({ accountId }: { accountId: string }): PostProps[] {
+    const userExists = verifyUserExistenceView(this.users, accountId)
 
     if (userExists) {
       near.log("User exists")
-      const posts = this.users.get(username)?.posts
-      near.log(`Specific posts from ${username}: ${posts}`)
+      const posts = this.users.get(accountId)?.posts
+      near.log(`Specific posts from ${accountId}: ${posts}`)
 
       return posts
     } else {
@@ -44,11 +34,11 @@ class SocialNear {
   }
 
   @view({})
-  get_posts_from_user_friends(accountId: AccountId): PostProps[] {
+  get_posts_from_user_friends({ accountId }: { accountId: string }): PostProps[] {
     const friendsPosts: PostProps[] = []
     near.log("get_posts_from_user_friends accoutnId: ", accountId)
 
-    const userExists = verifyUserExistence(this.users)
+    const userExists = verifyUserExistenceView(this.users, accountId)
     assert(userExists, "User is not registered on the platform. Reverting call.")
 
     const user = this.users.get(accountId)
@@ -69,19 +59,13 @@ class SocialNear {
   }
 
   @view({})
-  get_user(accountId: string): UserProps {
-    const userExists2 = verifyUserExistenceV2(this.users, accountId)
-
-    near.log("userExists2", userExists2)
-    near.log("get_user accountId:", accountId)
-    near.log("getter", this.users.get(accountId))
-
+  get_user({ accountId }: { accountId: string }): UserProps {
     return this.users.get(accountId)
   } 
 
   @view({})
-  get_user_friends(accountId: AccountId): UserProps[] {
-    const userExists = verifyUserExistence(this.users)
+  get_user_friends({ accountId }: { accountId: string }): UserProps[] {
+    const userExists = verifyUserExistenceView(this.users, accountId)
     assert(userExists, "User is not registered on the platform. Reverting call.")
 
     const user = this.users.get(accountId)
@@ -94,11 +78,7 @@ class SocialNear {
 
   @call({})
   add_post({ content }: PostProps): void {
-    near.log(`Before verifyUserExistence: ${this.users}`)
-
     const userExists = verifyUserExistence(this.users)
-
-    near.log(`After verifyUserExistence: ${this.users}`)
 
     assert(userExists, "User is not registered on the platform. Reverting call.")
 
@@ -109,18 +89,19 @@ class SocialNear {
     // Add post to posts array
     // Add post to user posts array
     this.posts.push(newPost)
-    this.users.get(near.signerAccountId()).posts.push(newPost)
+    const user = this.users.get(near.signerAccountId())
+    user.posts.push(newPost)
+    this.users.set(near.signerAccountId(), user)
   }
 
   @call({})
-  add_new_friend(accountId: AccountId): void {
-    // TO-DO update friends mapping (friends.set)
+  add_new_friend({ accountId }: { accountId: string }): void {
     const userExists = verifyUserExistence(this.users)
 
     assert(userExists, "User is not registered on the platform. Reverting call.")
     const userToAddFriend = this.users.get(near.signerAccountId())
 
-    near.log("userToAddFriend", userToAddFriend)
+    near.log("userToAddFriend", userToAddFriend.username)
 
     const friendAlreadyAdded = userToAddFriend.friends.filter((friend) => {
       return friend.username === accountId
@@ -129,7 +110,7 @@ class SocialNear {
     assert(!friendAlreadyAdded, "Friend already added. Reverting call.")
 
     const friendToAddExists = this.friends.containsKey(accountId)
-
+ 
     assert(friendToAddExists, "User does not exist. Reverting call.")
 
     const friend = this.users.get(accountId)
@@ -140,10 +121,22 @@ class SocialNear {
       userFriends = []
     }
 
+
+    // ------ UPDATE USER -------
+    // Get user that called function current state
+    // update current state
+    // set new state for user
+
+    // ------ UPDATE FRIENDS -------
+    // Get friends mapping current state
+    // update friends current state
+    // set new state for user
+    const user = this.users.get(near.signerAccountId())
+    user.friends.push(friend)
     userFriends.push(friend)
 
-    userToAddFriend.friends.push(friend)
-    this.friends.set(accountId, userFriends)
+    this.users.set(near.signerAccountId(), user)
+    this.friends.set(near.signerAccountId(), userFriends)
   }
 
   // call this when user connect wallet for the first time
@@ -165,18 +158,12 @@ class SocialNear {
 
 function verifyUserExistence(users: LookupMap<UserProps>) {
   const userExists = users.containsKey(near.signerAccountId())
-  const getUser = users.get(near.signerAccountId())
-  near.log("user", userExists)
-  near.log("getUser", getUser)
 
   return userExists
 }
 
-function verifyUserExistenceV2(users: LookupMap<UserProps>, accountId) {
+function verifyUserExistenceView(users: LookupMap<UserProps>, accountId: string) {
   const userExists = users.containsKey(accountId)
-  const getUser = users.get(accountId)
-  near.log("verifyUserExistenceV2 user", userExists)
-  near.log("verifyUserExistenceV2 getUser", getUser)
 
   return userExists
 }
